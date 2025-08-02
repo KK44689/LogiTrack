@@ -53,15 +53,32 @@ class TestController
             context.SaveChanges();
 
             // Then, add an inventory item linked to that order
-            context.InventoryItems.Add(new InventoryItem
-            {
-                Name = "Pallet Jack",
-                Quantity = 12,
-                Location = "Warehouse A",
-                OrderId = order.OrderId 
-            });
+            var name = "Pallet Jack";
+            var quantity = 12;
+            var location = "Warehouse A";
+            
+            bool isItemExists = context.InventoryItems.Any(item =>
+                item.Name == name &&
+                item.Quantity == quantity &&
+                item.Location == location
+            );
 
-            context.SaveChanges();
+            if (!isItemExists)
+            {
+                context.InventoryItems.Add(new InventoryItem
+                {
+                    Name = "Pallet Jack",
+                    Quantity = 12,
+                    Location = "Warehouse A",
+                    OrderId = order.OrderId
+                });
+
+                context.SaveChanges();
+            }
+            else
+            {
+                Console.WriteLine("Item already exists in the inventory.");
+            }
 
             // Retrieve and print inventory to confirm
             var items = context.InventoryItems.ToList();
