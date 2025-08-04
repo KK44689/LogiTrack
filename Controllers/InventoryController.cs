@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using LogiTrack.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace LogiTrack.Controllers
 {
@@ -9,17 +11,35 @@ namespace LogiTrack.Controllers
     public class InventoryController : ControllerBase
     {
         private readonly LogiTrackContext dbContext;
+        private readonly IMemoryCache _cache;
 
-        public InventoryController(LogiTrackContext context)
+        private const string CacheKey = "InventoryItems";
+
+        public InventoryController(LogiTrackContext context, IMemoryCache cache)
         {
             dbContext = context;
+            _cache = cache;
         }
 
         // Return a list of all inventory items
         [HttpGet]
         public async Task<IActionResult> GetAllInventoryItems()
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            if (_cache.TryGetValue(CacheKey, out var cachedItems))
+            {
+                stopwatch.Stop();
+                Console.WriteLine($"Cached GetAllInventoryItems executed in {stopwatch.ElapsedMilliseconds} ms");
+                Console.WriteLine("Returning cached inventory items.");
+
+                return Ok(cachedItems);
+            }
+
             var inventoryItems = await dbContext.InventoryItems.ToListAsync();
+
+            stopwatch.Stop();
+            Console.WriteLine($"GetAllInventoryItems executed in {stopwatch.ElapsedMilliseconds} ms");
 
             if (inventoryItems == null)
             {
@@ -27,6 +47,11 @@ namespace LogiTrack.Controllers
             }
             else
             {
+                _cache.Set(CacheKey, inventoryItems, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
+                });
+
                 return Ok(inventoryItems);
             }
         }

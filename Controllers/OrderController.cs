@@ -2,6 +2,7 @@ using LogiTrack.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace LogiTrack.Controllers
 {
@@ -11,23 +12,39 @@ namespace LogiTrack.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly LogiTrackContext dbContext;
+        private readonly IMemoryCache _cache;
 
-        public OrdersController(LogiTrackContext context)
+        private const string CacheKey = "Orders";
+
+        public OrdersController(LogiTrackContext context, IMemoryCache cache)
         {
             dbContext = context;
+            _cache = cache;
         }
 
         // Return a list of all orders
         [HttpGet]
         public async Task<IActionResult> GetOrders()
         {
+            if (_cache.TryGetValue(CacheKey, out var cachedOrders))
+            {
+                Console.WriteLine("Returning cached orders.");
+                return Ok(cachedOrders);
+            }
+
             var order = await dbContext.Orders
+                .AsNoTracking()
                 .Include(o => o.ItemList).ToListAsync();
 
             if (order == null || !order.Any())
             {
                 return NotFound("No orders found.");
             }
+
+            _cache.Set(CacheKey, order, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
+            });
 
             return Ok(order);
         }
@@ -37,6 +54,7 @@ namespace LogiTrack.Controllers
         public async Task<IActionResult> GetOrderById(int id)
         {
             var order = await dbContext.Orders
+                .AsNoTracking()
                 .Include(o => o.ItemList)
                 .FirstOrDefaultAsync(o => o.OrderId == id);
 
@@ -67,6 +85,8 @@ namespace LogiTrack.Controllers
 
             dbContext.Orders.Remove(order);
             await dbContext.SaveChangesAsync();
+
+            _cache.Remove("Orders"); // Clear cache after deletion
 
             return NoContent();
         }
