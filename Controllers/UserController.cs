@@ -2,6 +2,7 @@ using LogiTrack.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 [Authorize(Roles = "Admin")]
 [ApiController]
@@ -44,7 +45,7 @@ public class UserController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAllUsers()
     {
-        var users = _userManager.Users.ToList();
+        var users = await _userManager.Users.ToListAsync();
         if (users == null || !users.Any())
         {
             return NotFound("No users found.");
