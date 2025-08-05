@@ -41,19 +41,17 @@ namespace LogiTrack.Controllers
             stopwatch.Stop();
             Console.WriteLine($"GetAllInventoryItems executed in {stopwatch.ElapsedMilliseconds} ms");
 
-            if (inventoryItems == null)
+            if (!inventoryItems.Any())
             {
                 return NotFound("No inventory items found.");
             }
-            else
-            {
-                _cache.Set(CacheKey, inventoryItems, new MemoryCacheEntryOptions
-                {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
-                });
 
-                return Ok(inventoryItems);
-            }
+            _cache.Set(CacheKey, inventoryItems, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
+            });
+
+            return Ok(inventoryItems);
         }
 
         // Add a new item to the inventory

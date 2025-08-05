@@ -36,7 +36,7 @@ namespace LogiTrack.Controllers
                 .AsNoTracking()
                 .Include(o => o.ItemList).ToListAsync();
 
-            if (order == null || !order.Any())
+            if (!order.Any())
             {
                 return NotFound("No orders found.");
             }
@@ -86,7 +86,7 @@ namespace LogiTrack.Controllers
             dbContext.Orders.Remove(order);
             await dbContext.SaveChangesAsync();
 
-            _cache.Remove("Orders"); // Clear cache after deletion
+            _cache.Remove(CacheKey); // Clear cache after deletion
 
             return NoContent();
         }
