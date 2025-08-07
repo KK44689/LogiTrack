@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LogiTrack.Controllers.Interfaces;
 using LogiTrack.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,7 @@ namespace LogiTrack.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class InventoryController : ControllerBase
+    public class InventoryController : ControllerBase, IInventoryService
     {
         private readonly LogiTrackContext dbContext;
         private readonly IMemoryCache _cache;
@@ -23,7 +24,7 @@ namespace LogiTrack.Controllers
 
         // Return a list of all inventory items
         [HttpGet]
-        public async Task<IActionResult> GetAllInventoryItems()
+        public async Task<IActionResult> GetAllInventoryItemsAsync()
         {
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -36,27 +37,31 @@ namespace LogiTrack.Controllers
                 return Ok(cachedItems);
             }
 
-            var inventoryItems = await dbContext.InventoryItems.ToListAsync();
+            var inventoryItems = await dbContext.InventoryItems
+                .AsNoTracking()
+                .ToListAsync();
 
             stopwatch.Stop();
             Console.WriteLine($"GetAllInventoryItems executed in {stopwatch.ElapsedMilliseconds} ms");
 
-            if (!inventoryItems.Any())
+            if (inventoryItems == null)
             {
                 return NotFound("No inventory items found.");
             }
-
-            _cache.Set(CacheKey, inventoryItems, new MemoryCacheEntryOptions
+            else
             {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
-            });
+                _cache.Set(CacheKey, inventoryItems, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
+                });
 
-            return Ok(inventoryItems);
+                return Ok(inventoryItems);
+            }
         }
 
         // Add a new item to the inventory
         [HttpPost]
-        public async Task<IActionResult> AddInventoryItem([FromBody] InventoryItem newItem)
+        public async Task<IActionResult> AddInventoryItemAsync([FromBody] InventoryItem newItem)
         {
             if (newItem == null)
             {
@@ -71,22 +76,33 @@ namespace LogiTrack.Controllers
             }
             else
             {
+                _cache.Remove(CacheKey); // Clear cache before adding a new item
+
                 await dbContext.InventoryItems.AddAsync(newItem);
                 await dbContext.SaveChangesAsync();
-                Console.WriteLine($"Item added: {newItem.ItemId}:{newItem.Name}, Quantity: {newItem.Quantity}, Location: {newItem.Location}");
+
+                var updatedInventory = await dbContext.InventoryItems.ToListAsync(); // Ensure the cache is updated
+                _cache.Set(CacheKey, updatedInventory, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
+                });
+
                 return Ok(newItem);
             }
         }
 
         // Remove an item by ID
         [HttpDelete("{id}")]
-        public async Task<IActionResult> RemoveInventoryItemById(int id)
+        public async Task<IActionResult> RemoveInventoryItemByIdAsync(int id)
         {
             var item = await dbContext.InventoryItems.FindAsync(id);
             if (item == null) return NotFound($"Item with ID {id} not found.");
 
             dbContext.InventoryItems.Remove(item);
             await dbContext.SaveChangesAsync();
+
+            _cache.Remove(CacheKey); // Clear cache after deletion
+
             return Ok($"Item with ID {id} removed successfully.");
         }
     }

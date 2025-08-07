@@ -1,3 +1,4 @@
+using LogiTrack.Controllers.Interfaces;
 using LogiTrack.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +10,7 @@ namespace LogiTrack.Controllers
     [Authorize(Roles = "Admin")]
     [ApiController]
     [Route("api/[controller]")]
-    public class OrdersController : ControllerBase
+    public class OrdersController : ControllerBase, IOrderService
     {
         private readonly LogiTrackContext dbContext;
         private readonly IMemoryCache _cache;
@@ -24,7 +25,7 @@ namespace LogiTrack.Controllers
 
         // Return a list of all orders
         [HttpGet]
-        public async Task<IActionResult> GetOrders()
+        public async Task<IActionResult> GetOrdersAsync()
         {
             if (_cache.TryGetValue(CacheKey, out var cachedOrders))
             {
@@ -36,7 +37,7 @@ namespace LogiTrack.Controllers
                 .AsNoTracking()
                 .Include(o => o.ItemList).ToListAsync();
 
-            if (!order.Any())
+            if (order == null || !order.Any())
             {
                 return NotFound("No orders found.");
             }
@@ -51,7 +52,7 @@ namespace LogiTrack.Controllers
 
         // Return an order with its items
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetOrderById(int id)
+        public async Task<IActionResult> GetOrderByIdAsync(int id)
         {
             var order = await dbContext.Orders
                 .AsNoTracking()
@@ -65,19 +66,29 @@ namespace LogiTrack.Controllers
 
         // Create a new order
         [HttpPost]
-        public async Task<IActionResult> CreateOrder([FromBody] Order order)
+        public async Task<IActionResult> CreateOrderAsync([FromBody] Order order)
         {
             if (order == null) return BadRequest("Order cannot be null.");
 
+            _cache.Remove(CacheKey);
+
             await dbContext.Orders.AddAsync(order);
             await dbContext.SaveChangesAsync();
+            var updatedOrders = await dbContext.Orders
+                .Include(o => o.ItemList)
+                .ToListAsync(); // Ensure the cache is updated
 
-            return CreatedAtAction(nameof(GetOrderById), new { id = order.OrderId }, order);
+            _cache.Set(CacheKey, updatedOrders, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30)
+            });
+
+            return CreatedAtAction(nameof(GetOrderByIdAsync), new { id = order.OrderId }, order);
         }
 
         // Delete an order by ID
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteOrderById(int id)
+        public async Task<IActionResult> DeleteOrderByIdAsync(int id)
         {
             var order = await dbContext.Orders.FindAsync(id);
 
@@ -86,7 +97,7 @@ namespace LogiTrack.Controllers
             dbContext.Orders.Remove(order);
             await dbContext.SaveChangesAsync();
 
-            _cache.Remove(CacheKey); // Clear cache after deletion
+            _cache.Remove("Orders"); // Clear cache after deletion
 
             return NoContent();
         }

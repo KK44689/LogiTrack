@@ -46,7 +46,7 @@ public class UserController : ControllerBase
     public async Task<IActionResult> GetAllUsers()
     {
         var users = await _userManager.Users.ToListAsync();
-        if (!users.Any())
+        if (users == null || !users.Any())
         {
             return NotFound("No users found.");
         }

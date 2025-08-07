@@ -1,9 +1,11 @@
 using System.Text;
 using LogiTrack;
+using LogiTrack.Controllers;
 using LogiTrack.Models;
 using LogiTrack.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -61,6 +63,22 @@ app.UseSwaggerUI();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+
+    // TestController is a custom controller for testing purposes
+    var testController = new TestController();
+
+    // Call test methods to demonstrate functionality
+    // Console.WriteLine("Running TestDisplayInfo methods...");
+    // testController.TestDisplayInfo();
+
+    // Console.WriteLine("Running TestGetOrderSummary methods...");
+    // testController.TestGetOrderSummary();
+
+    // Console.WriteLine("Running TestRemoveItem methods...");
+    // testController.TestRemoveItem();
+
+    // Console.WriteLine("Running TestDatabaseContext methods...");
+    // testController.TestDatabaseContext();
 }
 
 app.UseAuthentication();
