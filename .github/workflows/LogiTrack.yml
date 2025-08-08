@@ -25,4 +25,4 @@ jobs:
       run: dotnet build --no-restore --configuration Release
 
     - name: Run tests
-      run: dotnet test ../LogiTrack.Tests/LogiTrack.Tests.csproj --no-build --configuration Release --logger trx
+      run: dotnet test LogiTrack.Tests/LogiTrack.Tests.csproj --no-build --configuration Release --logger trx
